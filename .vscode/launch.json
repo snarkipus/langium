@@ -45,6 +45,16 @@
             ]
         },
         {
+            "name": "Run Small Java Extension",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "args": [
+                "${workspaceFolder}/examples/small-java/example",
+                "--extensionDevelopmentPath=${workspaceFolder}/examples/small-java"
+            ]
+        },
+        {
             "name": "Attach to Language Server",
             "type": "node",
             "port": 6009,
@@ -58,6 +68,7 @@
                 "${workspaceFolder}/examples/arithmetics/out/**/*.js",
                 "${workspaceFolder}/examples/domainmodel/out/**/*.js",
                 "${workspaceFolder}/examples/statemachine/out/**/*.js",
+                "${workspaceFolder}/examples/small-java/out/**/*.js",
                 "${workspaceFolder}/packages/langium-vscode/out/**/*.js"
             ]
         },
