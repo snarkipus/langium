@@ -55,7 +55,9 @@
         "langium:generate": "langium generate",
         "langium:watch": "langium generate --watch",
         "publish:next": "npm --no-git-tag-version version \"$(semver $npm_package_version -i minor)-next.$(git rev-parse --short HEAD)\" && npm publish --tag next",
-        "publish:latest": "npm publish --tag latest"
+        "publish:latest": "npm publish --tag latest",
+        "test": "vitest",
+        "test-ui": "vitest --ui"
     },
     "dependencies": {
         "chalk": "^4.1.2",
