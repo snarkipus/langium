@@ -79,5 +79,9 @@
     "author": {
         "name": "TypeFox",
         "url": "https://www.typefox.io"
+    },
+    "wallaby": {
+        "trace" : true,
+        "debug": true
     }
 }
