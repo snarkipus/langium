@@ -27,6 +27,42 @@ export function getEntryRule(grammar: ast.Grammar): ast.ParserRule | undefined {
 }
 
 /**
+ * Returns all rules that can be reached from the entry point of the specified grammar.
+ *
+ * @param grammar The grammar that contains all rules
+ * @param allTerminals Whether or not to include terminals that are referenced only by other terminals
+ * @returns A list of referenced parser and terminal rules. If the grammar contains no entry rule,
+ *      this function returns all rules of the specified grammar.
+ */
+export function getAllReachableRules(grammar: ast.Grammar, allTerminals: boolean): Set<ast.AbstractRule> {
+    const ruleNames = new Set<string>();
+    const entryRule = getEntryRule(grammar);
+    if (!entryRule) {
+        return new Set(grammar.rules);
+    }
+    ruleDfs(entryRule, ruleNames, allTerminals);
+    const rules = new Set<ast.AbstractRule>();
+    for (const rule of grammar.rules) {
+        if (ruleNames.has(rule.name) || (ast.isTerminalRule(rule) && rule.hidden)) {
+            rules.add(rule);
+        }
+    }
+    return rules;
+}
+
+function ruleDfs(rule: ast.AbstractRule, visitedSet: Set<string>, allTerminals: boolean): void {
+    visitedSet.add(rule.name);
+    streamAllContents(rule).forEach(node => {
+        if (ast.isRuleCall(node) || (allTerminals && ast.isTerminalRuleCall(node))) {
+            const refRule = node.rule.ref;
+            if (refRule && !visitedSet.has(refRule.name)) {
+                ruleDfs(refRule, visitedSet, allTerminals);
+            }
+        }
+    });
+}
+
+/**
  * Determines the grammar expression used to parse a cross-reference (usually a reference to a terminal rule).
  * A cross-reference can declare this expression explicitly in the form `[Type : Terminal]`, but if `Terminal`
  * is omitted, this function attempts to infer it from the name of the referenced `Type` (using `findNameAssignment`).
@@ -76,7 +112,7 @@ export function findNodesForProperty(node: CstNode | undefined, property: string
  *        the node with the specified index is returned.
  */
 export function findNodeForProperty(node: CstNode | undefined, property: string | undefined, index?: number): CstNode | undefined {
-    if (!node ||!property) {
+    if (!node || !property) {
         return undefined;
     }
     const nodes = findNodesForPropertyInternal(node, property, node.element, true);
@@ -199,23 +235,23 @@ export function findNameAssignment(type: ast.AbstractType | ast.InferredType): a
     return findNameAssignmentInternal(type, new Map());
 }
 
-function findNameAssignmentInternal(type: ast.AbstractType, cashed: Map<ast.AbstractType, ast.Assignment | undefined>): ast.Assignment | undefined {
+function findNameAssignmentInternal(type: ast.AbstractType, cache: Map<ast.AbstractType, ast.Assignment | undefined>): ast.Assignment | undefined {
     function go(node: AstNode, refType: ast.AbstractType): ast.Assignment | undefined {
         let childAssignment: ast.Assignment | undefined = undefined;
         const parentAssignment = getContainerOfType(node, ast.isAssignment);
         // No parent assignment implies unassigned rule call
         if (!parentAssignment) {
-            childAssignment = findNameAssignmentInternal(refType, cashed);
+            childAssignment = findNameAssignmentInternal(refType, cache);
         }
-        cashed.set(type, childAssignment);
+        cache.set(type, childAssignment);
         return childAssignment;
     }
 
-    if (cashed.has(type)) return cashed.get(type);
-    cashed.set(type, undefined);
+    if (cache.has(type)) return cache.get(type);
+    cache.set(type, undefined);
     for (const node of streamAllContents(type)) {
         if (ast.isAssignment(node) && node.feature.toLowerCase() === 'name') {
-            cashed.set(type, node);
+            cache.set(type, node);
             return node;
         } else if (ast.isRuleCall(node) && ast.isParserRule(node.rule.ref)) {
             return go(node, node.rule.ref);
