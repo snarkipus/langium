@@ -13,7 +13,6 @@ describe('Domain Model Scope Computation', () => {
 
     let testDoc: LangiumDocument<AstNode>;
     let exports: AstNodeDescription[];
-    let parsedTypes: string;
     let computedNames: string;
     const expectedNames = 'E1, foo.bar.Complex, foo.bar.E2, baz.E3, baz.E4, baz.nested.E5';
 
@@ -57,8 +56,6 @@ describe('Domain Model Scope Computation', () => {
 
         testDoc = await parseDocument(services, text);
         exports = await services.references.ScopeComputation.computeExports(testDoc);
-        parsedTypes = exports.map(e => e.type).join(', ');
-        console.log(parsedTypes);
         computedNames = exports.map(e => e.name).join(', ');
     });
 
