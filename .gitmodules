@@ -1,3 +1,4 @@
 [submodule "examples/small-java"]
 	path = examples/small-java
 	url = git@github.com:snarkipus/small-java.git
+	update = merge
