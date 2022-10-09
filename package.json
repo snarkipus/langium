@@ -34,5 +34,12 @@
   "workspaces": [
     "packages/*",
     "examples/*"
-  ]
+  ],
+  "wallaby": {
+    "filesWithNoCoverageCalculated": [
+        "examples/domainmodel/*",
+        "examples/requirements/*",
+        "packages/"
+    ]
+}
 }
