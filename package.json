@@ -37,9 +37,9 @@
   ],
   "wallaby": {
     "filesWithNoCoverageCalculated": [
-        "examples/domainmodel/*",
-        "examples/requirements/*",
-        "packages/"
+      "examples/domainmodel/*",
+      "examples/requirements/*",
+      "packages/"
     ]
-}
+  }
 }
