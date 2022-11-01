@@ -68,13 +68,11 @@ export class CstNodeBuilder {
         }
     }
 
-    addHiddenTokens(hiddenTokens?: IToken[]): void {
-        if (hiddenTokens) {
-            for (const token of hiddenTokens) {
-                const hiddenNode = new LeafCstNodeImpl(token.startOffset, token.image.length, tokenToRange(token), token.tokenType, true);
-                hiddenNode.root = this.rootNode;
-                this.addHiddenToken(this.rootNode, hiddenNode);
-            }
+    addHiddenTokens(hiddenTokens: IToken[]): void {
+        for (const token of hiddenTokens) {
+            const hiddenNode = new LeafCstNodeImpl(token.startOffset, token.image.length, tokenToRange(token), token.tokenType, true);
+            hiddenNode.root = this.rootNode;
+            this.addHiddenToken(this.rootNode, hiddenNode);
         }
     }
 
@@ -143,7 +141,7 @@ export class LeafCstNodeImpl extends AbstractCstNode implements LeafCstNode {
         return this._offset + this._length;
     }
 
-    get hidden(): boolean {
+    override get hidden(): boolean {
         return this._hidden;
     }
 
@@ -231,17 +229,17 @@ class CstNodeContainer extends Array<CstNode> {
         Object.setPrototypeOf(this, CstNodeContainer.prototype);
     }
 
-    push(...items: CstNode[]): number {
+    override push(...items: CstNode[]): number {
         this.addParents(items);
         return super.push(...items);
     }
 
-    unshift(...items: CstNode[]): number {
+    override unshift(...items: CstNode[]): number {
         this.addParents(items);
         return super.unshift(...items);
     }
 
-    splice(start: number, count: number, ...items: CstNode[]): CstNode[] {
+    override splice(start: number, count: number, ...items: CstNode[]): CstNode[] {
         this.addParents(items);
         return super.splice(start, count, ...items);
     }
@@ -256,7 +254,7 @@ class CstNodeContainer extends Array<CstNode> {
 export class RootCstNodeImpl extends CompositeCstNodeImpl implements RootCstNode {
     private _text = '';
 
-    get text(): string {
+    override get text(): string {
         return this._text.substring(this.offset, this.end);
     }
 
