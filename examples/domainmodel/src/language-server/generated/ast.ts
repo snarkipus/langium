@@ -3,9 +3,8 @@
  * DO NOT EDIT MANUALLY!
  ******************************************************************************/
 
-/* eslint-disable @typescript-eslint/array-type */
-/* eslint-disable @typescript-eslint/no-empty-interface */
-import { AstNode, AstReflection, Reference, ReferenceInfo, isAstNode, TypeMetaData } from 'langium';
+/* eslint-disable */
+import { AstNode, AbstractAstReflection, Reference, ReferenceInfo, TypeMetaData } from 'langium';
 
 export type AbstractElement = PackageDeclaration | Type;
 
@@ -84,22 +83,23 @@ export function isPackageDeclaration(item: unknown): item is PackageDeclaration 
     return reflection.isInstance(item, PackageDeclaration);
 }
 
-export type DomainModelAstType = 'AbstractElement' | 'DataType' | 'Domainmodel' | 'Entity' | 'Feature' | 'PackageDeclaration' | 'Type';
+export interface DomainModelAstType {
+    AbstractElement: AbstractElement
+    DataType: DataType
+    Domainmodel: Domainmodel
+    Entity: Entity
+    Feature: Feature
+    PackageDeclaration: PackageDeclaration
+    Type: Type
+}
 
-export class DomainModelAstReflection implements AstReflection {
+export class DomainModelAstReflection extends AbstractAstReflection {
 
     getAllTypes(): string[] {
         return ['AbstractElement', 'DataType', 'Domainmodel', 'Entity', 'Feature', 'PackageDeclaration', 'Type'];
     }
 
-    isInstance(node: unknown, type: string): boolean {
-        return isAstNode(node) && this.isSubtype(node.$type, type);
-    }
-
-    isSubtype(subtype: string, supertype: string): boolean {
-        if (subtype === supertype) {
-            return true;
-        }
+    protected override computeIsSubtype(subtype: string, supertype: string): boolean {
         switch (subtype) {
             case DataType:
             case Entity: {

@@ -3,10 +3,8 @@
  * DO NOT EDIT MANUALLY!
  ******************************************************************************/
 
-/* eslint-disable @typescript-eslint/array-type */
-/* eslint-disable @typescript-eslint/no-empty-interface */
-import type { AstNode, AstReflection, Reference, ReferenceInfo, TypeMetaData } from '../../syntax-tree';
-import { isAstNode } from '../../utils/ast-util';
+/* eslint-disable */
+import { AstNode, AbstractAstReflection, Reference, ReferenceInfo, TypeMetaData } from '../../syntax-tree';
 
 export type AbstractRule = ParserRule | TerminalRule;
 
@@ -453,22 +451,53 @@ export function isWildcard(item: unknown): item is Wildcard {
     return reflection.isInstance(item, Wildcard);
 }
 
-export type LangiumGrammarAstType = 'AbstractElement' | 'AbstractRule' | 'AbstractType' | 'Action' | 'Alternatives' | 'Assignment' | 'AtomType' | 'CharacterRange' | 'Condition' | 'Conjunction' | 'CrossReference' | 'Disjunction' | 'Grammar' | 'GrammarImport' | 'Group' | 'InferredType' | 'Interface' | 'Keyword' | 'LiteralCondition' | 'NamedArgument' | 'NegatedToken' | 'Negation' | 'Parameter' | 'ParameterReference' | 'ParserRule' | 'RegexToken' | 'ReturnType' | 'RuleCall' | 'TerminalAlternatives' | 'TerminalGroup' | 'TerminalRule' | 'TerminalRuleCall' | 'Type' | 'TypeAttribute' | 'UnorderedGroup' | 'UntilToken' | 'Wildcard';
+export interface LangiumGrammarAstType {
+    AbstractElement: AbstractElement
+    AbstractRule: AbstractRule
+    AbstractType: AbstractType
+    Action: Action
+    Alternatives: Alternatives
+    Assignment: Assignment
+    AtomType: AtomType
+    CharacterRange: CharacterRange
+    Condition: Condition
+    Conjunction: Conjunction
+    CrossReference: CrossReference
+    Disjunction: Disjunction
+    Grammar: Grammar
+    GrammarImport: GrammarImport
+    Group: Group
+    InferredType: InferredType
+    Interface: Interface
+    Keyword: Keyword
+    LiteralCondition: LiteralCondition
+    NamedArgument: NamedArgument
+    NegatedToken: NegatedToken
+    Negation: Negation
+    Parameter: Parameter
+    ParameterReference: ParameterReference
+    ParserRule: ParserRule
+    RegexToken: RegexToken
+    ReturnType: ReturnType
+    RuleCall: RuleCall
+    TerminalAlternatives: TerminalAlternatives
+    TerminalGroup: TerminalGroup
+    TerminalRule: TerminalRule
+    TerminalRuleCall: TerminalRuleCall
+    Type: Type
+    TypeAttribute: TypeAttribute
+    UnorderedGroup: UnorderedGroup
+    UntilToken: UntilToken
+    Wildcard: Wildcard
+}
 
-export class LangiumGrammarAstReflection implements AstReflection {
+export class LangiumGrammarAstReflection extends AbstractAstReflection {
 
     getAllTypes(): string[] {
         return ['AbstractElement', 'AbstractRule', 'AbstractType', 'Action', 'Alternatives', 'Assignment', 'AtomType', 'CharacterRange', 'Condition', 'Conjunction', 'CrossReference', 'Disjunction', 'Grammar', 'GrammarImport', 'Group', 'InferredType', 'Interface', 'Keyword', 'LiteralCondition', 'NamedArgument', 'NegatedToken', 'Negation', 'Parameter', 'ParameterReference', 'ParserRule', 'RegexToken', 'ReturnType', 'RuleCall', 'TerminalAlternatives', 'TerminalGroup', 'TerminalRule', 'TerminalRuleCall', 'Type', 'TypeAttribute', 'UnorderedGroup', 'UntilToken', 'Wildcard'];
     }
 
-    isInstance(node: unknown, type: string): boolean {
-        return isAstNode(node) && this.isSubtype(node.$type, type);
-    }
-
-    isSubtype(subtype: string, supertype: string): boolean {
-        if (subtype === supertype) {
-            return true;
-        }
+    protected override computeIsSubtype(subtype: string, supertype: string): boolean {
         switch (subtype) {
             case Action: {
                 return this.isSubtype(AbstractElement, supertype) || this.isSubtype(AbstractType, supertype);

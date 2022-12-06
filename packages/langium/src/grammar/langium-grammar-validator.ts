@@ -5,19 +5,17 @@
  ******************************************************************************/
 
 import { DiagnosticTag } from 'vscode-languageserver-types';
-import { Utils } from 'vscode-uri';
 import { NamedAstNode } from '../references/name-provider';
 import { References } from '../references/references';
 import { LangiumServices } from '../services';
-import { AstNode, Reference } from '../syntax-tree';
-import { getContainerOfType, getDocument, streamAllContents } from '../utils/ast-util';
+import { AstNode, Properties, Reference } from '../syntax-tree';
+import { getContainerOfType, streamAllContents } from '../utils/ast-util';
 import { MultiMap } from '../utils/collections';
 import { toDocumentSegment } from '../utils/cst-util';
 import { findNodeForKeyword, findNameAssignment, findNodeForProperty, getAllReachableRules } from '../utils/grammar-util';
 import { Stream, stream } from '../utils/stream';
-import { relativeURI } from '../utils/uri-util';
 import { ValidationAcceptor, ValidationChecks, ValidationRegistry } from '../validation/validation-registry';
-import { LangiumDocument, LangiumDocuments } from '../workspace/documents';
+import { LangiumDocuments } from '../workspace/documents';
 import * as ast from './generated/ast';
 import { isParserRule, isRuleCall } from './generated/ast';
 import { getTypeName, isDataTypeRule, isOptionalCardinality, resolveImport, resolveTransitiveImports, terminalRegex } from './internal-grammar-util';
@@ -29,21 +27,27 @@ export class LangiumGrammarValidationRegistry extends ValidationRegistry {
         super(services);
         const validator = services.validation.LangiumGrammarValidator;
         const checks: ValidationChecks<ast.LangiumGrammarAstType> = {
-            Action: validator.checkActionTypeUnions,
+            Action: [
+                validator.checkActionTypeUnions,
+                validator.checkAssignmentReservedName
+            ],
             AbstractRule: validator.checkRuleName,
             Assignment: [
                 validator.checkAssignmentWithFeatureName,
-                validator.checkAssignmentToFragmentRule
+                validator.checkAssignmentToFragmentRule,
+                validator.checkAssignmentReservedName
             ],
             ParserRule: [
                 validator.checkParserRuleDataType,
-                validator.checkRuleParametersUsed
+                validator.checkRuleParametersUsed,
+                validator.checkParserRuleReservedName,
             ],
             TerminalRule: [
                 validator.checkTerminalRuleReturnType,
                 validator.checkHiddenTerminalRule,
                 validator.checkEmptyTerminalRule
             ],
+            InferredType: validator.checkTypeReservedName,
             Keyword: validator.checkKeyword,
             UnorderedGroup: validator.checkUnorderedGroup,
             Grammar: [
@@ -55,7 +59,6 @@ export class LangiumGrammarValidationRegistry extends ValidationRegistry {
                 validator.checkDuplicateImportedGrammar,
                 validator.checkGrammarHiddenTokens,
                 validator.checkGrammarForUnusedRules,
-                validator.checkGrammarImports,
                 validator.checkGrammarTypeUnions,
                 validator.checkGrammarTypeInfer,
                 validator.checkTypesConsistency,
@@ -63,6 +66,9 @@ export class LangiumGrammarValidationRegistry extends ValidationRegistry {
             ],
             GrammarImport: validator.checkPackageImport,
             CharacterRange: validator.checkInvalidCharacterRange,
+            Interface: validator.checkTypeReservedName,
+            Type: validator.checkTypeReservedName,
+            TypeAttribute: validator.checkTypeReservedName,
             RuleCall: [
                 validator.checkUsedHiddenTerminalRule,
                 validator.checkUsedFragmentTerminalRule,
@@ -91,7 +97,6 @@ export namespace IssueCodes {
     export const UseRegexTokens = 'use-regex-tokens';
     export const EntryRuleTokenSyntax = 'entry-rule-token-syntax';
     export const CrossRefTokenSyntax = 'cross-ref-token-syntax';
-    export const MissingImport = 'missing-import';
     export const UnnecessaryFileExtension = 'unnecessary-file-extension';
     export const InvalidReturns = 'invalid-returns';
     export const InvalidInfers = 'invalid-infers';
@@ -269,12 +274,14 @@ export class LangiumGrammarValidator {
             const ruleTypeName = getTypeName(rule);
             if (!isDataType && ruleTypeName && types.has(ruleTypeName) === isInfers) {
                 const keywordNode = isInfers ? findNodeForKeyword(rule.$cstNode, 'infer') : findNodeForKeyword(rule.$cstNode, 'returns');
-                accept('error', getMessage(ruleTypeName, isInfers), {
-                    node: rule.inferredType ?? rule,
-                    property: 'name',
-                    code: isInfers ? IssueCodes.InvalidInfers : IssueCodes.InvalidReturns,
-                    data: keywordNode && toDocumentSegment(keywordNode)
-                });
+                if (isInfers || rule.returnType?.ref !== undefined) {
+                    accept('error', getMessage(ruleTypeName, isInfers), {
+                        node: rule.inferredType ?? rule,
+                        property: 'name',
+                        code: isInfers ? IssueCodes.InvalidInfers : IssueCodes.InvalidReturns,
+                        data: keywordNode && toDocumentSegment(keywordNode)
+                    });
+                }
             } else if (isDataType && isInfers) {
                 const inferNode = findNodeForKeyword(rule.$cstNode, 'infer');
                 accept('error', 'Data type rules cannot infer a type.', {
@@ -400,41 +407,6 @@ export class LangiumGrammarValidator {
         }
     }
 
-    checkGrammarImports(grammar: ast.Grammar, accept: ValidationAcceptor): void {
-        // Compute transitive grammar dependencies once for each grammar
-        const importedGrammars = new Set(resolveTransitiveImports(this.documents, grammar).map(e => getDocument(e)));
-        streamAllContents(grammar).forEach(e => {
-            if (ast.isRuleCall(e) || ast.isTerminalRuleCall(e)) {
-                this.checkRuleCallImport(e, importedGrammars, accept);
-            }
-        });
-    }
-
-    private checkRuleCallImport(ruleCall: ast.RuleCall | ast.TerminalRuleCall, importedDocuments: Set<LangiumDocument>, accept: ValidationAcceptor): void {
-        const ref = ruleCall.rule.ref;
-        if (ref) {
-            const refDoc = getDocument(ref);
-            const document = getDocument(ruleCall);
-            const grammar = document.parseResult.value;
-            // Only check if the rule is sourced from another document
-            if (ast.isGrammar(grammar) && refDoc !== document && !importedDocuments.has(refDoc)) {
-                let relative = relativeURI(Utils.dirname(document.uri), refDoc.uri);
-                if (relative.endsWith('.langium')) {
-                    relative = relative.substring(0, relative.length - '.langium'.length);
-                }
-                if (!relative.startsWith('.')) {
-                    relative = './' + relative;
-                }
-                accept('error', `Referenced rule "${ruleCall.rule.ref?.name}" is not imported.`, {
-                    node: ruleCall,
-                    property: 'rule',
-                    code: IssueCodes.MissingImport,
-                    data: relative
-                });
-            }
-        }
-    }
-
     checkGrammarTypeUnions(grammar: ast.Grammar, accept: ValidationAcceptor): void {
         for (const rule of grammar.rules) {
             if (ast.isParserRule(rule) && ast.isType(rule.returnType)) {
@@ -548,18 +520,48 @@ export class LangiumGrammarValidator {
         if (rule.name && !isEmptyRule(rule)) {
             const firstChar = rule.name.substring(0, 1);
             if (firstChar.toUpperCase() !== firstChar) {
-                accept('warning', 'Rule name should start with an upper case letter.', { node: rule, property: 'name', code: IssueCodes.RuleNameUppercase });
+                accept('warning', 'Rule name should start with an upper case letter.', {
+                    node: rule,
+                    property: 'name',
+                    code: IssueCodes.RuleNameUppercase
+                });
             }
         }
     }
 
+    checkTypeReservedName(type: ast.Interface | ast.TypeAttribute | ast.Type | ast.InferredType, accept: ValidationAcceptor): void {
+        this.checkReservedName(type, 'name', accept);
+    }
+
+    checkAssignmentReservedName(assignment: ast.Assignment | ast.Action, accept: ValidationAcceptor): void {
+        this.checkReservedName(assignment, 'feature', accept);
+    }
+
+    checkParserRuleReservedName(rule: ast.ParserRule, accept: ValidationAcceptor): void {
+        if (!rule.inferredType) {
+            this.checkReservedName(rule, 'name', accept);
+        }
+    }
+
+    private checkReservedName<N extends AstNode>(node: N, property: Properties<N>, accept: ValidationAcceptor): void {
+        const name = node[property as keyof N];
+        if (typeof name === 'string' && reservedNames.has(name)) {
+            accept('error', `'${name}' is a reserved name of the JavaScript runtime.`, {
+                node,
+                property
+            });
+        }
+    }
+
     checkKeyword(keyword: ast.Keyword, accept: ValidationAcceptor): void {
-        if (keyword.value.length === 0) {
-            accept('error', 'Keywords cannot be empty.', { node: keyword });
-        } else if (keyword.value.trim().length === 0) {
-            accept('error', 'Keywords cannot only consist of whitespace characters.', { node: keyword });
-        } else if (/\s/g.test(keyword.value)) {
-            accept('warning', 'Keywords should not contain whitespace characters.', { node: keyword });
+        if (getContainerOfType(keyword, isParserRule)) {
+            if (keyword.value.length === 0) {
+                accept('error', 'Keywords cannot be empty.', { node: keyword });
+            } else if (keyword.value.trim().length === 0) {
+                accept('error', 'Keywords cannot only consist of whitespace characters.', { node: keyword });
+            } else if (/\s/g.test(keyword.value)) {
+                accept('warning', 'Keywords should not contain whitespace characters.', { node: keyword });
+            }
         }
     }
 
@@ -684,3 +686,78 @@ function isPrimitiveType(type: string): boolean {
 function isEmptyRule(rule: ast.AbstractRule): boolean {
     return !rule.definition || !rule.definition.$cstNode || rule.definition.$cstNode.length === 0;
 }
+
+const reservedNames = new Set([
+    // Built-in objects, properties and methods
+    // Collections
+    'Array',
+    'Int8Array',
+    'Uint8Array',
+    'Uint8ClampedArray',
+    'Int16Array',
+    'Uint16Array',
+    'Int32Array',
+    'Uint32Array',
+    'Float32Array',
+    'Float64Array',
+    'BigInt64Array',
+    'BigUint64Array',
+    // Keyed collections
+    'Map',
+    'Set',
+    'WeakMap',
+    'WeakSet',
+    // Errors
+    'Error',
+    'AggregateError',
+    'EvalError',
+    'InternalError',
+    'RangeError',
+    'ReferenceError',
+    'SyntaxError',
+    'TypeError',
+    'URIError',
+    // Primitives
+    'BigInt',
+    'RegExp',
+    'Number',
+    'Object',
+    'Function',
+    'Symbol',
+    'String',
+    // Math
+    'Math',
+    'NaN',
+    'Infinity',
+    'isFinite',
+    'isNaN',
+    // Structured data
+    'Buffer',
+    'ArrayBuffer',
+    'SharedArrayBuffer',
+    'Atomics',
+    'DataView',
+    'JSON',
+    'globalThis',
+    'decodeURIComponent',
+    'decodeURI',
+    'encodeURIComponent',
+    'encodeURI',
+    'parseInt',
+    'parseFloat',
+    // Control abstraction
+    'Promise',
+    'Generator',
+    'GeneratorFunction',
+    'AsyncFunction',
+    'AsyncGenerator',
+    'AsyncGeneratorFunction',
+    // Reflection
+    'Reflect',
+    'Proxy',
+    // Others
+    'Date',
+    'Intl',
+    'eval',
+    'undefined'
+]);

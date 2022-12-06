@@ -3,9 +3,8 @@
  * DO NOT EDIT MANUALLY!
  ******************************************************************************/
 
-/* eslint-disable @typescript-eslint/array-type */
-/* eslint-disable @typescript-eslint/no-empty-interface */
-import { AstNode, AstReflection, Reference, ReferenceInfo, isAstNode, TypeMetaData } from 'langium';
+/* eslint-disable */
+import { AstNode, AbstractAstReflection, Reference, ReferenceInfo, TypeMetaData } from 'langium';
 
 export interface Contact extends AstNode {
     readonly $container: RequirementModel | TestModel;
@@ -80,22 +79,22 @@ export function isTestModel(item: unknown): item is TestModel {
     return reflection.isInstance(item, TestModel);
 }
 
-export type RequirementsAndTestsAstType = 'Contact' | 'Environment' | 'Requirement' | 'RequirementModel' | 'Test' | 'TestModel';
+export interface RequirementsAndTestsAstType {
+    Contact: Contact
+    Environment: Environment
+    Requirement: Requirement
+    RequirementModel: RequirementModel
+    Test: Test
+    TestModel: TestModel
+}
 
-export class RequirementsAndTestsAstReflection implements AstReflection {
+export class RequirementsAndTestsAstReflection extends AbstractAstReflection {
 
     getAllTypes(): string[] {
         return ['Contact', 'Environment', 'Requirement', 'RequirementModel', 'Test', 'TestModel'];
     }
 
-    isInstance(node: unknown, type: string): boolean {
-        return isAstNode(node) && this.isSubtype(node.$type, type);
-    }
-
-    isSubtype(subtype: string, supertype: string): boolean {
-        if (subtype === supertype) {
-            return true;
-        }
+    protected override computeIsSubtype(subtype: string, supertype: string): boolean {
         switch (subtype) {
             default: {
                 return false;
