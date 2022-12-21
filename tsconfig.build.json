@@ -9,6 +9,7 @@
         { "path": "examples/arithmetics" },
         { "path": "examples/domainmodel" },
         { "path": "examples/requirements" },
-        { "path": "examples/statemachine" }
+        { "path": "examples/statemachine" },
+        { "path": "examples/langium-blocks" }
     ]
  }

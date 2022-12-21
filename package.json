@@ -14,22 +14,22 @@
     "test": "vitest",
     "test-ui": "vitest --ui",
     "coverage": "vitest run --coverage",
-    "langium:generate": "npm run langium:generate --workspace=packages/langium --workspace=examples/domainmodel --workspace=examples/arithmetics --workspace=examples/statemachine --workspace=examples/requirements",
+    "langium:generate": "npm run langium:generate --workspace=packages/langium --workspace=examples/domainmodel --workspace=examples/arithmetics --workspace=examples/statemachine --workspace=examples/requirements --workspace=examples/langium-blocks",
     "dev-build": "npm run dev-clean && npm install && npm link ./packages/langium && npm link ./packages/langium-cli && npm link ./packages/generator-langium",
     "dev-clean": "shx rm -rf packages/**/node_modules && npm uninstall -g langium-workspaces langium-cli generator-langium langium && npm unlink langium-workspaces langium-cli generator-langium langium"
   },
   "devDependencies": {
-    "@types/jest": "^29.0.3",
+    "@types/jest": "^29.2.4",
     "@types/jest-expect-message": "^1.0.4",
     "@typescript-eslint/eslint-plugin": "^5.28.0",
     "@typescript-eslint/parser": "^5.28.0",
-    "@vitest/coverage-c8": "^0.23.2",
-    "@vitest/ui": "^0.23.4",
+    "@vitest/coverage-c8": "^0.25.3",
+    "@vitest/ui": "^0.25.3",
     "eslint": "^8.17.0",
     "eslint-plugin-header": "^3.1.1",
     "shx": "^0.3.4",
     "typescript": "^4.7.4",
-    "vitest": "^0.23.2"
+    "vitest": "^0.25.3"
   },
   "workspaces": [
     "packages/*",
