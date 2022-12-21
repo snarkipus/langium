@@ -10,7 +10,7 @@ import * as ast from '../generated/ast';
 import { extractAssignments } from '../internal-grammar-util';
 import { LangiumGrammarServices } from '../langium-grammar-module';
 import { InterfaceType, isInterfaceType, isUnionType, Property, PropertyType, propertyTypesToString } from '../type-system/type-collector/types';
-import { distinctAndSorted } from '../type-system/types-util';
+import { distinctAndSorted, interfaceHierarchy } from '../type-system/types-util';
 import { DeclaredInfo, InferredInfo, isDeclared, isInferred, isInferredAndDeclared, LangiumGrammarDocument, TypeToValidationInfo } from '../workspace/documents';
 
 export function registerTypeValidationChecks(services: LangiumGrammarServices): void {
@@ -61,6 +61,22 @@ export class LangiumGrammarTypesValidator {
         if (ast.isType(action.type)) {
             accept('error', 'Actions cannot create union types.', { node: action, property: 'type' });
         }
+    }
+
+    checkInterfaceHierarchy(i: ast.Interface, accept: ValidationAcceptor): void {
+        const hierarchy = interfaceHierarchy(i);
+        hierarchy.forEach(ref => {
+            if (ref.ref?.name === i.name) {
+                accept(
+                    'error',
+                    "cycle in hierarchy of interface '" + i.name + "'",
+                    {
+                        node: i,
+                        property: 'name',
+                    }
+                );
+            }
+        });
     }
 }
 

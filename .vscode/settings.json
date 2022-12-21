@@ -1,5 +1,8 @@
 {
     "typescript.tsdk": "./node_modules/typescript/lib",
     "typescript.enablePromptUseWorkspaceTsdk": true,
-    "langium.build.ignorePatterns": "node_modules,out,/packages/generator-langium/**"
+    "langium.build.ignorePatterns": "node_modules,out,/packages/generator-langium/**",
+    "cSpell.words": [
+        "supertypes"
+    ]
 }

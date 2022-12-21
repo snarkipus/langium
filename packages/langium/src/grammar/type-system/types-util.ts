@@ -10,6 +10,7 @@ import { AstNodeLocator } from '../../workspace/ast-node-locator';
 import { LangiumDocuments } from '../../workspace/documents';
 import { Interface, Type, AbstractType, isInterface, isType } from '../generated/ast';
 import { AstTypes, InterfaceType, Property, PropertyType, TypeOption } from './type-collector/types';
+import { Reference } from '../../syntax-tree';
 
 /**
  * Collects all properties of all interface types. Includes super type properties.
@@ -133,3 +134,44 @@ export function sortInterfacesTopologically(interfaces: InterfaceType[]): Interf
     }
     return l.map(e => e.value);
 }
+
+// interface A { }
+// interface B { }
+// interface C extends A, B { }
+// interface D { }
+// interface E extends C, D { }
+
+export function interfaceHierarchy(inter: Interface): Set<Reference<Interface>> {
+    let visited = new Set<Reference<Interface>>();
+    let current = inter.superTypes;
+    while (current !== undefined && !refExists(current, visited)) {
+        // let current_inters: Reference<Interface> = current.filter(e => isInterface(e.ref));
+        const interRefs = current.filter(e => isInterface(e.ref));
+        for (const ref of interRefs) {
+            visited.add(ref as Reference<Interface>);
+            current = (ref as Reference<Interface>).ref!.superTypes;
+        }
+
+    }
+    return visited;
+}
+
+export function refExists(supertypes: Array<Reference<AbstractType>>, hierarchy: Set<Reference<Interface>>): boolean {
+    const interRefs = supertypes.filter(e => isInterface(e.ref));
+    for (const interRef of interRefs) {
+        if (hierarchy.has(interRef as Reference<Interface>)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// export function classHierarchy(c: SJClass): Set<Reference<SJClass>> {
+//     let visited = new Set<Reference<SJClass>>();
+//     let current = c.superClass;
+//     while (current != undefined && !visited.has(current)) {
+//         visited.add(current);
+//         current = current.ref?.superClass;
+//     }
+//     return visited;
+// }
